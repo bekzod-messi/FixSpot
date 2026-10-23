@@ -1,0 +1,2631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixSpot | Community Maintenance Triage &amp; Operations</title>
+  <meta name="description" content="Duplicate-aware neighborhood maintenance reporting, transparent priority scoring, and civic triage console.">
+  <style>
+    /* ==========================================================================
+       CIVIC OPERATIONS DESIGN SYSTEM & COLOR PALETTE
+       Warm-neutral canvas, charcoal typography, signal-orange priority accents
+       ========================================================================== */
+    :root {
+      --canvas: #f7f6f2;
+      --surface: #ffffff;
+      --surface-subtle: #f1efe9;
+      --surface-inset: #eae7df;
+      --border-subtle: #dcd8cf;
+      --border-strong: #8c887e;
+
+      /* Charcoal typography */
+      --charcoal-900: #141517;
+      --charcoal-800: #222427;
+      --charcoal-700: #34373d;
+      --charcoal-600: #4f535c;
+      --charcoal-500: #6e737e;
+      --charcoal-400: #9399a5;
+
+      /* Signal Orange priority accents */
+      --signal-orange: #ea580c;
+      --signal-orange-hover: #c2410c;
+      --signal-orange-bg: #fff7ed;
+      --signal-orange-border: #fdba74;
+      --signal-orange-dark: #9a3412;
+
+      /* Civic Lifecycle Status colors */
+      --st-reported-text: #0369a1;
+      --st-reported-bg: #e0f2fe;
+      --st-reported-border: #bae6fd;
+
+      --st-review-text: #6b21a8;
+      --st-review-bg: #f3e8ff;
+      --st-review-border: #e9d5ff;
+
+      --st-progress-text: #b45309;
+      --st-progress-bg: #fef3c7;
+      --st-progress-border: #fde68a;
+
+      --st-resolved-text: #15803d;
+      --st-resolved-bg: #dcfce7;
+      --st-resolved-border: #bbf7d0;
+
+      --st-stale-text: #b91c1c;
+      --st-stale-bg: #fee2e2;
+      --st-stale-border: #fca5a5;
+
+      /* Severity Levels */
+      --sev-urgent: #b91c1c;
+      --sev-urgent-bg: #fef2f2;
+      --sev-high: #ea580c;
+      --sev-high-bg: #fff7ed;
+      --sev-med: #b45309;
+      --sev-med-bg: #fffbeb;
+      --sev-low: #4b5563;
+      --sev-low-bg: #f3f4f6;
+
+      /* Demo Pill */
+      --demo-bg: #ffe4e6;
+      --demo-text: #9f1239;
+      --demo-border: #fecdd3;
+
+      /* Typography */
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --radius-sm: 3px;
+      --radius-md: 6px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 12px 28px rgba(0,0,0,0.18);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--canvas);
+      color: var(--charcoal-900);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--signal-orange);
+      outline-offset: 2px;
+    }
+
+    /* Masthead */
+    .masthead {
+      background-color: var(--surface);
+      border-bottom: 2px solid var(--charcoal-900);
+      padding: 0.85rem 1.25rem;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .masthead-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      background: var(--charcoal-900);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .brand-meta h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--charcoal-900);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1.15;
+    }
+
+    .brand-meta p {
+      font-size: 0.75rem;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+    }
+
+    .masthead-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Disclaimer & Municipal Notice Banner */
+    .system-notice {
+      background-color: var(--surface-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--charcoal-700);
+      padding: 0.5rem 1.25rem;
+    }
+
+    .system-notice-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .notice-tag {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--signal-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Main Console Viewport */
+    .app-viewport {
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 1.25rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ==========================================================================
+       OVERVIEW METRICS & DYNAMIC VISUALIZATION
+       ========================================================================== */
+    .overview-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) 2fr;
+      gap: 0.85rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 1100px) {
+      .overview-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .chart-card {
+        grid-column: span 2;
+      }
+    }
+    @media (max-width: 600px) {
+      .overview-strip {
+        grid-template-columns: 1fr;
+      }
+      .chart-card {
+        grid-column: span 1;
+      }
+    }
+
+    .metric-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      border-left: 4px solid var(--charcoal-900);
+    }
+
+    .metric-card.accent-orange { border-left-color: var(--signal-orange); }
+    .metric-card.accent-blue { border-left-color: var(--st-reported-text); }
+    .metric-card.accent-green { border-left-color: var(--st-resolved-text); }
+
+    .metric-title {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+    }
+
+    .metric-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--charcoal-900);
+      font-family: var(--font-mono);
+      line-height: 1.1;
+      margin: 0.25rem 0;
+    }
+
+    .metric-desc {
+      font-size: 0.725rem;
+      color: var(--charcoal-600);
+    }
+
+    /* Visualization Card */
+    .chart-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .chart-title {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+    }
+
+    .chart-hint {
+      font-size: 0.7rem;
+      color: var(--charcoal-400);
+      font-style: italic;
+    }
+
+    .category-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .cat-bar-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 35px;
+      gap: 0.5rem;
+      align-items: center;
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0.1rem 0.25rem;
+      border-radius: var(--radius-sm);
+      transition: background 0.1s ease;
+    }
+    .cat-bar-row:hover {
+      background-color: var(--surface-subtle);
+    }
+
+    .cat-bar-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--charcoal-700);
+      font-weight: 600;
+    }
+
+    .cat-bar-track {
+      background-color: var(--surface-inset);
+      height: 8px;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .cat-bar-fill {
+      height: 100%;
+      background-color: var(--charcoal-700);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+    .cat-bar-fill.accent { background-color: var(--signal-orange); }
+
+    .cat-bar-count {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--charcoal-900);
+    }
+
+    /* Pipeline distribution strip */
+    .status-pipeline-strip {
+      display: flex;
+      height: 8px;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 0.25rem;
+    }
+    .pipeline-seg {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .pipeline-seg.rep { background: var(--st-reported-text); }
+    .pipeline-seg.rev { background: var(--st-review-text); }
+    .pipeline-seg.prog { background: var(--st-progress-text); }
+    .pipeline-seg.res { background: var(--st-resolved-text); }
+
+    /* ==========================================================================
+       CONTROL PANEL (SEARCH, FILTERS, SORT)
+       ========================================================================== */
+    .control-panel {
+      background-color: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1.15rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+      gap: 0.65rem;
+      align-items: end;
+    }
+
+    @media (max-width: 1000px) {
+      .filters-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 600px) {
+      .filters-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .form-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+    }
+
+    .form-control {
+      padding: 0.45rem 0.65rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      background-color: #ffffff;
+      color: var(--charcoal-900);
+      font-family: inherit;
+    }
+
+    .form-control:focus {
+      border-color: var(--signal-orange);
+      box-shadow: 0 0 0 1px var(--signal-orange);
+    }
+
+    .filter-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--surface-subtle);
+      font-size: 0.75rem;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    /* ==========================================================================
+       STRUCTURED QUEUE & DETAIL INSPECTOR SPLIT
+       ========================================================================== */
+    .console-split {
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .console-split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .queue-container {
+      background-color: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      overflow-x: auto;
+    }
+
+    table.queue-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.825rem;
+    }
+
+    table.queue-table th {
+      background-color: var(--surface-subtle);
+      color: var(--charcoal-700);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 2px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    table.queue-table td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--surface-subtle);
+      vertical-align: middle;
+      color: var(--charcoal-900);
+    }
+
+    table.queue-table tbody tr {
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    table.queue-table tbody tr:hover {
+      background-color: #faf9f5;
+    }
+
+    table.queue-table tbody tr.is-selected {
+      background-color: var(--signal-orange-bg);
+      border-left: 4px solid var(--signal-orange);
+    }
+
+    .priority-badge-box {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      padding: 0.2rem 0.35rem;
+      border-radius: var(--radius-sm);
+      background: var(--surface-inset);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      line-height: 1;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .priority-badge-box.critical {
+      background: #7f1d1d;
+      color: #ffffff;
+      border-color: #991b1b;
+    }
+    .priority-badge-box.high {
+      background: var(--signal-orange);
+      color: #ffffff;
+      border-color: var(--signal-orange-hover);
+    }
+    .priority-badge-box.medium {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+    .priority-badge-box.standard {
+      background: var(--surface-subtle);
+      color: var(--charcoal-600);
+    }
+    .priority-badge-box.resolved {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
+    .priority-score-num {
+      font-size: 0.95rem;
+    }
+    .priority-score-label {
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .thumb-cell {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background-color: var(--surface-subtle);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .thumb-cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .report-main-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .report-text-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .report-title {
+      font-weight: 700;
+      color: var(--charcoal-900);
+      font-size: 0.875rem;
+      line-height: 1.25;
+    }
+
+    .report-location {
+      font-size: 0.775rem;
+      color: var(--charcoal-600);
+    }
+
+    .table-timestamp {
+      font-family: var(--font-mono);
+      font-size: 0.725rem;
+      color: var(--charcoal-500);
+      white-space: nowrap;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.675rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-sm);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .badge-reported { background: var(--st-reported-bg); color: var(--st-reported-text); border-color: var(--st-reported-border); }
+    .badge-review { background: var(--st-review-bg); color: var(--st-review-text); border-color: var(--st-review-border); }
+    .badge-progress { background: var(--st-progress-bg); color: var(--st-progress-text); border-color: var(--st-progress-border); }
+    .badge-resolved { background: var(--st-resolved-bg); color: var(--st-resolved-text); border-color: var(--st-resolved-border); }
+    .badge-stale { background: var(--st-stale-bg); color: var(--st-stale-text); border-color: var(--st-stale-border); }
+
+    .badge-urgent { background: var(--sev-urgent-bg); color: var(--sev-urgent); border-color: #fca5a5; }
+    .badge-high { background: var(--sev-high-bg); color: var(--sev-high); border-color: var(--signal-orange-border); }
+    .badge-med { background: var(--sev-med-bg); color: var(--sev-med); border-color: #fde68a; }
+    .badge-low { background: var(--sev-low-bg); color: var(--sev-low); border-color: #e5e7eb; }
+
+    .badge-demo {
+      background: var(--demo-bg);
+      color: var(--demo-text);
+      border: 1px dashed var(--demo-border);
+      font-size: 0.625rem;
+    }
+
+    .affected-pill {
+      font-family: var(--font-mono);
+      font-size: 0.725rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 9999px;
+      background: var(--surface-inset);
+      color: var(--charcoal-700);
+      white-space: nowrap;
+    }
+    .affected-pill.boosted {
+      background: var(--signal-orange-bg);
+      color: var(--signal-orange);
+      border: 1px solid var(--signal-orange-border);
+    }
+
+    /* ==========================================================================
+       DETAILED ISSUE INSPECTOR PANEL
+       ========================================================================== */
+    .inspector-panel {
+      background-color: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-top: 4px solid var(--charcoal-900);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      padding: 1.25rem;
+      position: sticky;
+      top: 5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-height: calc(100vh - 6rem);
+      overflow-y: auto;
+    }
+
+    .inspector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--surface-subtle);
+      padding-bottom: 0.75rem;
+    }
+
+    .inspector-id-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .inspector-id-title {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--charcoal-900);
+    }
+
+    .inspector-badges {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .inspector-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .inspector-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--charcoal-500);
+    }
+
+    .inspector-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--charcoal-900);
+    }
+
+    .inspector-value {
+      font-size: 0.875rem;
+      color: var(--charcoal-900);
+    }
+
+    .inspector-desc-box {
+      background: var(--surface-subtle);
+      border-left: 3px solid var(--charcoal-700);
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      white-space: pre-line;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    /* Photo container in inspector */
+    .inspector-photo-box {
+      width: 100%;
+      max-height: 220px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background-color: var(--surface-inset);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .inspector-photo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Transparent Priority Score Box */
+    .priority-breakdown-card {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .score-banner-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .score-breakdown-list {
+      font-size: 0.75rem;
+      color: var(--charcoal-700);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      border-top: 1px dashed var(--border-subtle);
+      padding-top: 0.4rem;
+      margin-top: 0.2rem;
+    }
+
+    .score-disclaimer {
+      font-size: 0.675rem;
+      color: var(--charcoal-500);
+      font-style: italic;
+      margin-top: 0.2rem;
+    }
+
+    .stale-warning-banner {
+      background: var(--st-stale-bg);
+      border: 1px solid var(--st-stale-border);
+      padding: 0.6rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      color: var(--st-stale-text);
+      line-height: 1.35;
+    }
+
+    .inspector-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      padding: 0.65rem;
+      background: var(--surface-inset);
+      border-radius: var(--radius-sm);
+    }
+
+    .timeline-entry {
+      font-size: 0.775rem;
+      border-bottom: 1px dashed var(--border-subtle);
+      padding-bottom: 0.35rem;
+    }
+    .timeline-entry:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .timeline-time {
+      font-family: var(--font-mono);
+      font-size: 0.675rem;
+      color: var(--charcoal-500);
+    }
+
+    .timeline-action {
+      font-weight: 700;
+      color: var(--charcoal-800);
+    }
+
+    /* Lifecycle Status Transition Form */
+    .status-transition-box {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* ==========================================================================
+       BUTTONS & CONTROLS
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.825rem;
+      font-weight: 700;
+      font-family: inherit;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background-color 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: var(--signal-orange);
+      color: #ffffff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--signal-orange-hover);
+    }
+
+    .btn-charcoal {
+      background-color: var(--charcoal-900);
+      color: #ffffff;
+    }
+    .btn-charcoal:hover:not(:disabled) {
+      background-color: var(--charcoal-700);
+    }
+
+    .btn-subtle {
+      background-color: var(--surface);
+      border-color: var(--border-subtle);
+      color: var(--charcoal-700);
+    }
+    .btn-subtle:hover:not(:disabled) {
+      background-color: var(--surface-subtle);
+      border-color: var(--border-strong);
+    }
+
+    .btn-sm {
+      padding: 0.25rem 0.55rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-boost {
+      background-color: var(--signal-orange-bg);
+      color: var(--signal-orange);
+      border: 1px solid var(--signal-orange-border);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .btn-boost:hover:not(:disabled) {
+      background-color: #fed7aa;
+    }
+
+    /* ==========================================================================
+       MODAL OVERLAYS (REPORT CREATION & DATA STORAGE)
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 21, 23, 0.65);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.15s ease;
+    }
+
+    .modal-overlay.is-active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border: 2px solid var(--charcoal-900);
+      border-radius: var(--radius-sm);
+      width: 100%;
+      max-width: 660px;
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+      padding: 0.85rem 1.25rem;
+      background: var(--charcoal-900);
+      color: #ffffff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-size: 1.35rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-footer {
+      padding: 0.85rem 1.25rem;
+      background: var(--surface-subtle);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    /* Duplicate Warning Callout */
+    .duplicate-alert {
+      background-color: var(--signal-orange-bg);
+      border: 2px solid var(--signal-orange);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      animation: fadeIn 0.18s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .duplicate-alert-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--signal-orange);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .duplicate-alert-body {
+      font-size: 0.825rem;
+      color: var(--charcoal-900);
+      line-height: 1.4;
+    }
+
+    .duplicate-alert-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    /* Form Validation Feedback */
+    .field-error-msg {
+      font-size: 0.725rem;
+      color: var(--st-stale-text);
+      display: none;
+      font-weight: 600;
+    }
+
+    .has-error .form-control {
+      border-color: var(--st-stale-text);
+      background-color: #fffbfa;
+    }
+    .has-error .field-error-msg {
+      display: block;
+    }
+
+    /* Empty States */
+    .empty-state {
+      padding: 3.5rem 1.5rem;
+      text-align: center;
+      color: var(--charcoal-500);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .empty-state-icon {
+      font-size: 2.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Site Footer */
+    .site-footer {
+      border-top: 1px solid var(--border-subtle);
+      background-color: var(--surface);
+      padding: 1.1rem 1.25rem;
+      font-size: 0.75rem;
+      color: var(--charcoal-500);
+      font-family: var(--font-mono);
+      margin-top: auto;
+    }
+
+    .footer-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CONSOLE MASTHEAD -->
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand-group">
+        <div class="brand-badge" aria-hidden="true">OPS-FIX</div>
+        <div class="brand-meta">
+          <h1>FixSpot &bull; Maintenance Triage</h1>
+          <p>Duplicate-Aware Civic Maintenance &amp; Priority Queue</p>
+        </div>
+      </div>
+      <div class="masthead-actions">
+        <button id="openNewReportModalBtn" class="btn btn-primary" type="button" aria-haspopup="dialog">
+          ➕ Report Maintenance Issue
+        </button>
+        <button id="openStorageModalBtn" class="btn btn-subtle" type="button" title="Local Storage &amp; JSON Backup">
+          💾 Data &amp; Backup
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MUNICIPAL LIMITATION & STALE ADVISORY BANNER -->
+  <aside class="system-notice" aria-label="System Notice and Municipal Status">
+    <div class="system-notice-inner">
+      <div>
+        <span class="notice-tag">Local Sandbox:</span>
+        Neighborhood triage demonstration. <strong>Data is saved locally in this browser. Reports do not dispatch to municipal public works agencies.</strong>
+      </div>
+      <div>
+        <span class="notice-tag">Triage Policy:</span> Priority scores are calculated transparently from severity, age, and corroboration. Unresolved tickets with 7+ days without updates flag as <em>Stale</em>.
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN OPERATING CONSOLE -->
+  <main class="app-viewport">
+
+    <!-- OVERVIEW & DYNAMIC VISUALIZATION STRIP -->
+    <section class="overview-strip" aria-label="Civic Overview and Category Breakdown">
+      
+      <!-- Metric 1: Total Reports -->
+      <div class="metric-card">
+        <div class="metric-title">Total Reports</div>
+        <div class="metric-value" id="metricTotal">0</div>
+        <div class="metric-desc">Lifetime logged in this browser</div>
+      </div>
+
+      <!-- Metric 2: Unresolved Issues -->
+      <div class="metric-card accent-blue">
+        <div class="metric-title">Unresolved Issues</div>
+        <div class="metric-value" id="metricUnresolved">0</div>
+        <div class="metric-desc">Reported, Review, or In-Progress</div>
+      </div>
+
+      <!-- Metric 3: High Priority Issues -->
+      <div class="metric-card accent-orange">
+        <div class="metric-title">High Priority</div>
+        <div class="metric-value" id="metricHighPriority">0</div>
+        <div class="metric-desc">Score &ge; 50 or Urgent/High hazard</div>
+      </div>
+
+      <!-- Metric 4: Resolved Issues -->
+      <div class="metric-card accent-green">
+        <div class="metric-title">Resolved Reports</div>
+        <div class="metric-value" id="metricResolved">0</div>
+        <div class="metric-desc">Verified completed maintenance</div>
+      </div>
+
+      <!-- Metric 5: Category Distribution & Status Pipeline Visualization -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Issue Distribution by Category</div>
+          <div class="chart-hint">Click bar to filter queue</div>
+        </div>
+
+        <div class="category-bars" id="categoryBarsContainer">
+          <!-- Dynamically populated via JS -->
+        </div>
+
+        <div style="border-top: 1px dashed var(--border-subtle); padding-top: 0.35rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.675rem; color: var(--charcoal-500); font-family: var(--font-mono);">
+            <span>LIFECYCLE PIPELINE:</span>
+            <span id="pipelineRatio">0% Resolved</span>
+          </div>
+          <div class="status-pipeline-strip" id="statusPipelineStrip">
+            <div class="pipeline-seg rep" style="width: 25%;" title="Reported"></div>
+            <div class="pipeline-seg rev" style="width: 25%;" title="Under Review"></div>
+            <div class="pipeline-seg prog" style="width: 25%;" title="In Progress"></div>
+            <div class="pipeline-seg res" style="width: 25%;" title="Resolved"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- CONTROL PANEL: SEARCH, FILTERS & SORTING -->
+    <section class="control-panel" aria-label="Queue Filter Controls">
+      <div class="filters-grid">
+        
+        <div class="form-group">
+          <label for="filterSearch" class="form-label">Search Query (Keywords, Street, ID)</label>
+          <input type="search" id="filterSearch" class="form-control" placeholder="e.g. Oak St, pothole, RPT-1001..." autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label for="filterCategory" class="form-label">Category</label>
+          <select id="filterCategory" class="form-control">
+            <option value="ALL">All Categories</option>
+            <option value="roads">Roads &amp; Pavement</option>
+            <option value="lighting">Street Lighting</option>
+            <option value="waste">Waste &amp; Sanitation</option>
+            <option value="sidewalks">Sidewalks &amp; Curbs</option>
+            <option value="other">Other Maintenance</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="filterStatus" class="form-label">Lifecycle Status</label>
+          <select id="filterStatus" class="form-control">
+            <option value="ALL">All Statuses</option>
+            <option value="reported">Reported (New)</option>
+            <option value="under-review">Under Review</option>
+            <option value="in-progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="stale">Stale (7+ days inactive)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="filterSeverity" class="form-label">Severity</label>
+          <select id="filterSeverity" class="form-control">
+            <option value="ALL">All Severities</option>
+            <option value="Urgent">Urgent / Hazard</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sortBy" class="form-label">Sort Queue By</label>
+          <select id="sortBy" class="form-control">
+            <option value="priority">Priority Score (Highest)</option>
+            <option value="newest">Date Reported (Newest)</option>
+            <option value="oldest">Date Reported (Oldest)</option>
+            <option value="affected">Most Corroborated</option>
+            <option value="severity">Severity Level</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="align-self: end;">
+          <button id="resetFiltersBtn" class="btn btn-subtle" type="button" style="width: 100%;">
+            Reset
+          </button>
+        </div>
+
+      </div>
+
+      <div class="filter-summary-row">
+        <div id="queueCountIndicator">Showing 0 of 0 reports</div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="stat-pill" id="statReported">Reported: 0</span>
+          <span class="stat-pill" id="statReview">Under Review: 0</span>
+          <span class="stat-pill" id="statProgress">In-Progress: 0</span>
+          <span class="stat-pill" id="statStale">Stale (7+d): 0</span>
+          <span class="stat-pill" id="statResolved">Resolved: 0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- STRUCTURED QUEUE & DETAIL INSPECTOR SPLIT -->
+    <div class="console-split">
+
+      <!-- LEFT: STRUCTURED QUEUE TABLE -->
+      <section class="queue-container" aria-label="Maintenance Queue">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th scope="col" title="Transparent Priority Score (0-100)">Priority</th>
+              <th scope="col">ID / Date</th>
+              <th scope="col">Issue Details</th>
+              <th scope="col">Category</th>
+              <th scope="col">Affected</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last Update</th>
+            </tr>
+          </thead>
+          <tbody id="queueTableBody">
+            <!-- Populated via JavaScript -->
+          </tbody>
+        </table>
+
+        <!-- Empty state when no reports match -->
+        <div id="tableEmptyState" class="empty-state" style="display: none;">
+          <div class="empty-state-icon" aria-hidden="true">📋</div>
+          <strong id="emptyTitle">No matching maintenance reports</strong>
+          <p id="emptyDesc">Adjust your search query or reset filters to display existing items.</p>
+          <button id="clearFiltersBtnEmpty" class="btn btn-subtle btn-sm" type="button" style="margin-top: 0.5rem;">
+            Clear All Active Filters
+          </button>
+        </div>
+      </section>
+
+      <!-- RIGHT: FOCUSED ISSUE-DETAIL INSPECTOR -->
+      <aside class="inspector-panel" id="inspectorPanel" aria-label="Issue Detail Panel">
+        <div class="inspector-header">
+          <div class="inspector-id-block">
+            <span class="inspector-label">Focused Dossier</span>
+            <div class="inspector-id-title" id="inspId">Select an issue</div>
+          </div>
+          <div class="inspector-badges" id="inspBadges"></div>
+        </div>
+
+        <div id="inspEmptyNotice" class="empty-state" style="padding: 2.5rem 0.5rem;">
+          <div class="empty-state-icon" aria-hidden="true">🔍</div>
+          <strong>No Report Selected</strong>
+          <p style="font-size: 0.8rem;">Click any row in the maintenance queue on the left to inspect issue details, view priority calculations, corroborate, or log lifecycle status transitions.</p>
+        </div>
+
+        <div id="inspContent" style="display: none; flex-direction: column; gap: 0.9rem;">
+          
+          <!-- Photo preview if available -->
+          <div id="inspPhotoWrapper" class="inspector-photo-box" style="display: none;">
+            <img id="inspPhotoImg" src="" alt="Issue photograph">
+          </div>
+
+          <div class="inspector-section">
+            <h3 class="inspector-title" id="inspTitle">Issue Title</h3>
+            <div class="inspector-location" id="inspLocation" style="font-size: 0.825rem; color: var(--charcoal-600); font-weight: 600;"></div>
+          </div>
+
+          <!-- Transparent Priority Calculation Box -->
+          <div class="priority-breakdown-card" id="inspPriorityBox">
+            <div class="score-banner-top">
+              <span class="inspector-label">Priority Assessment</span>
+              <strong id="inspPriorityTotal" style="font-family: var(--font-mono); font-size: 1.05rem;">Score: --</strong>
+            </div>
+            <div class="score-breakdown-list" id="inspPriorityBreakdown">
+              <!-- Factors injected via JS -->
+            </div>
+            <div class="score-disclaimer">
+              * Transparent civic priority estimate based on severity, elapsed age, and community corroborations. Not an official municipal work order ranking.
+            </div>
+          </div>
+
+          <!-- Stale Warning Banner -->
+          <div id="inspStaleWarning" class="stale-warning-banner" style="display: none;">
+            ⚠️ <strong>Stale Advisory:</strong> No updates or status adjustments have occurred for 7+ days. Please verify condition on site.
+          </div>
+
+          <div class="inspector-section">
+            <span class="inspector-label">Field Description &amp; Specifics</span>
+            <div class="inspector-desc-box" id="inspDescription"></div>
+          </div>
+
+          <!-- Corroboration / Also Affected Counter -->
+          <div class="inspector-section">
+            <span class="inspector-label">Community Corroboration</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--surface-inset); padding: 0.6rem 0.75rem; border-radius: var(--radius-sm);">
+              <div>
+                <strong id="inspAffectedCount">1</strong> neighbors corroborated
+              </div>
+              <button id="inspBoostBtn" class="btn btn-boost btn-sm" type="button" title="Confirm you are also affected by this maintenance problem">
+                +1 Also Affected
+              </button>
+            </div>
+          </div>
+
+          <!-- Lifecycle Status Transition Box -->
+          <div class="status-transition-box">
+            <span class="inspector-label">Record Status Change</span>
+            <div class="form-group">
+              <label for="inspStatusSelect" class="sr-only">Change Status</label>
+              <select id="inspStatusSelect" class="form-control">
+                <option value="reported">Reported (Pending review)</option>
+                <option value="under-review">Under review (Inspected/Assigned)</option>
+                <option value="in-progress">In progress (Work underway)</option>
+                <option value="resolved">Resolved (Completed/Verified)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="inspStatusReason" class="form-label" style="font-size: 0.675rem;">Reason / Field Update Note *</label>
+              <input type="text" id="inspStatusReason" class="form-control" placeholder="e.g. Work crew inspected on site / repairs completed" maxlength="160">
+              <div id="inspStatusReasonError" style="font-size: 0.7rem; color: var(--st-stale-text); display: none; font-weight: 600;">Please provide an update reason.</div>
+            </div>
+            <button id="inspUpdateStatusBtn" class="btn btn-charcoal btn-sm" type="button" style="align-self: flex-start;">
+              Apply Status Update
+            </button>
+          </div>
+
+          <!-- Update History & Activity Log -->
+          <div class="inspector-section">
+            <span class="inspector-label">Update History &amp; Activity Log</span>
+            <div class="inspector-timeline" id="inspTimeline"></div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- SITE FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <strong>FixSpot Civic Console</strong> &bull; Hackathon Project for Neighborhood Hacks &bull; Browser-local persistence
+      </div>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button id="resetDemoBtn" class="btn btn-subtle btn-sm" type="button">
+          Reset to Standard Demo Dataset
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       MODAL 1: CREATE NEW ISSUE REPORT (WITH PHOTO & DUPLICATE TRIAGE)
+       ========================================================================== -->
+  <div id="newReportModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalHeading">
+    <div class="modal-card">
+      <form id="newReportForm" novalidate>
+        <div class="modal-header">
+          <h2 id="modalHeading">Report Maintenance Problem</h2>
+          <button type="button" class="modal-close-btn" id="closeReportModalBtn" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          
+          <!-- Title -->
+          <div class="form-group" id="groupTitle">
+            <label for="repTitle" class="form-label">Issue Title *</label>
+            <input type="text" id="repTitle" class="form-control" placeholder="e.g. Deep Pothole in Eastbound Bike Lane" required maxlength="100" autocomplete="off">
+            <div class="field-error-msg" id="errTitle">Please enter a concise title for this issue.</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <!-- Category -->
+            <div class="form-group">
+              <label for="repCategory" class="form-label">Category *</label>
+              <select id="repCategory" class="form-control" required>
+                <option value="roads">Roads &amp; Pavement</option>
+                <option value="lighting">Street Lighting</option>
+                <option value="waste">Waste &amp; Sanitation</option>
+                <option value="sidewalks">Sidewalks &amp; Curbs</option>
+                <option value="other">Other Maintenance</option>
+              </select>
+            </div>
+
+            <!-- Severity -->
+            <div class="form-group">
+              <label for="repSeverity" class="form-label">Severity Assessment *</label>
+              <select id="repSeverity" class="form-control" required>
+                <option value="Low">Low (Cosmetic / Minor annoyance)</option>
+                <option value="Medium" selected>Medium (Standard repair needed)</option>
+                <option value="High">High (Impacting pedestrian or traffic flow)</option>
+                <option value="Urgent">Urgent (Immediate safety or trip hazard)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="form-group" id="groupLocation">
+            <label for="repLocation" class="form-label">Street / Block / Intersection *</label>
+            <input type="text" id="repLocation" class="form-control" placeholder="e.g. Oak Street &amp; 4th Avenue, or 300 Block Pine St" required maxlength="120" autocomplete="off">
+            <span style="font-size: 0.725rem; color: var(--charcoal-500);">Provide recognizable street names or cross streets to enable automatic duplicate detection.</span>
+            <div class="field-error-msg" id="errLocation">Please provide an approximate location or street description.</div>
+          </div>
+
+          <!-- INTELLIGENT DUPLICATE DETECTION PROMPT -->
+          <div id="duplicateAlertBox" class="duplicate-alert" style="display: none;">
+            <div class="duplicate-alert-header">
+              <span>⚠️ Potential Duplicate Detected</span>
+            </div>
+            <div class="duplicate-alert-body" id="duplicateAlertMsg">
+              A matching report in this category and location is already logged in the queue.
+            </div>
+            <div class="duplicate-alert-actions">
+              <button type="button" id="dupAddAffectedBtn" class="btn btn-primary btn-sm">
+                Corroborate Existing Report (+1 Also Affected)
+              </button>
+              <button type="button" id="dupIgnoreBtn" class="btn btn-subtle btn-sm">
+                Proceed as Separate Issue
+              </button>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group" id="groupDescription">
+            <label for="repDescription" class="form-label">Problem Description &amp; Specifics *</label>
+            <textarea id="repDescription" class="form-control" rows="3" placeholder="Describe the physical condition, approximate depth, fixture number, or landmarks..." required maxlength="450"></textarea>
+            <div class="field-error-msg" id="errDescription">Please provide a brief description of the maintenance issue.</div>
+          </div>
+
+          <!-- Optional Photo -->
+          <div class="form-group">
+            <label for="repPhotoFile" class="form-label">Optional Photo (Uploaded from device)</label>
+            <input type="file" id="repPhotoFile" class="form-control" accept="image/*" style="font-size: 0.8rem;">
+            <div id="repPhotoPreviewContainer" style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.35rem;">
+              <img id="repPhotoPreview" src="" alt="Photo preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <button type="button" id="repPhotoRemoveBtn" class="btn btn-subtle btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.7rem;">Remove Photo</button>
+            </div>
+            <span style="font-size: 0.7rem; color: var(--charcoal-500);">Images are automatically optimized and stored in your browser's local storage.</span>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-subtle" id="cancelReportBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitReportBtn">Submit Maintenance Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 2: LOCAL STORAGE MANAGEMENT & JSON BACKUP
+       ========================================================================== -->
+  <div id="storageModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="storageModalHeading">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="storageModalHeading">Data &amp; Backup Management</h2>
+        <button type="button" class="modal-close-btn" id="closeStorageModalBtn" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="modal-body" style="gap: 1rem; font-size: 0.85rem;">
+        
+        <div style="background: var(--surface-subtle); padding: 0.85rem; border-radius: var(--radius-sm); border-left: 3px solid var(--signal-orange);">
+          <strong>Browser-Only Persistence Policy:</strong>
+          <p style="margin-top: 0.35rem; color: var(--charcoal-700); line-height: 1.4;">
+            FixSpot stores all queue data in your browser's <code>localStorage</code> under key <code>fixspot_reports_v2</code>. No data is synchronized to a remote server, third-party analytics, or public municipality.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Export &amp; Import JSON Backup</label>
+          <p style="font-size: 0.75rem; color: var(--charcoal-600); margin-bottom: 0.4rem;">
+            Save your entire report register and activity log as a standardized JSON document, or restore from a previous file.
+          </p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button id="exportJsonBtn" class="btn btn-subtle btn-sm" type="button">⬇️ Export JSON Backup</button>
+            <button id="triggerImportBtn" class="btn btn-subtle btn-sm" type="button">⬆️ Import JSON File</button>
+            <input type="file" id="importFileInput" accept=".json,application/json" style="display: none;">
+          </div>
+        </div>
+
+        <div class="form-group" style="border-top: 1px solid var(--border-subtle); padding-top: 0.85rem;">
+          <label class="form-label">State Reset Utilities</label>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button id="loadDefaultDemoBtn" class="btn btn-subtle btn-sm" type="button">Reload Standard Demo Records</button>
+            <button id="clearAllBtn" class="btn btn-subtle btn-sm" type="button" style="color: var(--st-stale-text);">Clear All Records</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-charcoal" id="storageDoneBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       VANILLA JAVASCRIPT APPLICATION CORE
+       ========================================================================== -->
+  <script>
+    /**
+     * CONFIGURATION & SAMPLE DATASET
+     */
+    const CONFIG = {
+      storageKey: "fixspot_reports_v2",
+      staleThresholdDays: 7,
+      categories: {
+        roads: "Roads & Pavement",
+        lighting: "Street Lighting",
+        waste: "Waste & Sanitation",
+        sidewalks: "Sidewalks & Curbs",
+        other: "Other Maintenance"
+      },
+      // Realistic demo dataset clearly marked with isDemo: true
+      defaultDemoReports: [
+        {
+          id: "RPT-1001",
+          isDemo: true,
+          title: "Deep Wheel-Bending Pothole in Bike Lane",
+          category: "roads",
+          location: "Oak Street & 4th Avenue",
+          locationNormalized: "oak street 4th avenue",
+          severity: "Urgent",
+          status: "reported",
+          description: "Roughly 8-inch deep asphalt cavity in eastbound bike lane. Severe rim damage risk and safety hazard for cyclists navigating around parked vehicles.",
+          alsoAffectedCount: 5,
+          createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+          lastUpdatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+          photoData: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><rect width='200' height='150' fill='%23343a40'/><ellipse cx='100' cy='85' rx='70' ry='35' fill='%23111'/><path d='M50 70 L90 85 L140 75' stroke='%23ea580c' stroke-width='4' fill='none'/><text x='100' y='30' fill='%23fff' font-family='sans-serif' font-size='12' text-anchor='middle'>ROAD DEFECT</text></svg>",
+          history: [
+            { timestamp: new Date(Date.now() - 86400000 * 3).toISOString(), note: "Report logged as Urgent hazard by cyclist." },
+            { timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), note: "+1 confirmation added by commuter." },
+            { timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), note: "+3 additional neighbors confirmed also affected." }
+          ]
+        },
+        {
+          id: "RPT-1002",
+          isDemo: true,
+          title: "Flickering High-Pressure Sodium Street Lamp",
+          category: "lighting",
+          location: "Pine Street, 300 Block",
+          locationNormalized: "pine street 300 block",
+          severity: "High",
+          status: "in-progress",
+          description: "Pole fixture #P-314 strobes erratically at dusk, leaving pedestrian crosswalk and alley intersection in near-total darkness.",
+          alsoAffectedCount: 3,
+          createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
+          lastUpdatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+          photoData: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><rect width='200' height='150' fill='%231e293b'/><circle cx='100' cy='60' r='30' fill='%23fef08a' opacity='0.8'/><line x1='100' y1='90' x2='100' y2='150' stroke='%2394a3b8' stroke-width='8'/><text x='100' y='25' fill='%23fdba74' font-family='sans-serif' font-size='12' text-anchor='middle'>STREETLIGHT OUT</text></svg>",
+          history: [
+            { timestamp: new Date(Date.now() - 86400000 * 8).toISOString(), note: "Report logged by neighborhood block watch." },
+            { timestamp: new Date(Date.now() - 86400000 * 6).toISOString(), note: "Status changed to Under Review. Contacted utility coordinator." },
+            { timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), note: "Status changed to In Progress. Replacement ballast ordered." }
+          ]
+        },
+        {
+          id: "RPT-1003",
+          isDemo: true,
+          title: "Curb Inlet Grate Obstructed by Leaf Debris",
+          category: "roads",
+          location: "Maple Boulevard near Park Gate",
+          locationNormalized: "maple boulevard park gate",
+          severity: "Medium",
+          status: "under-review",
+          description: "Storm drain inlet blocked by compacted foliage and plastic refuse. Standing stormwater pools onto pedestrian ADA ramp after even modest rainfall.",
+          alsoAffectedCount: 2,
+          createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
+          lastUpdatedAt: new Date(Date.now() - 86400000 * 11).toISOString(), // Stale (> 7 days)
+          photoData: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><rect width='200' height='150' fill='%23475569'/><rect x='40' y='40' width='120' height='70' fill='%230f172a'/><line x1='60' y1='40' x2='60' y2='110' stroke='%2394a3b8' stroke-width='4'/><line x1='80' y1='40' x2='80' y2='110' stroke='%2394a3b8' stroke-width='4'/><line x1='100' y1='40' x2='100' y2='110' stroke='%2394a3b8' stroke-width='4'/><line x1='120' y1='40' x2='120' y2='110' stroke='%2394a3b8' stroke-width='4'/><line x1='140' y1='40' x2='140' y2='110' stroke='%2394a3b8' stroke-width='4'/><text x='100' y='25' fill='%23cbd5e1' font-family='sans-serif' font-size='12' text-anchor='middle'>DRAIN CLOG</text></svg>",
+          history: [
+            { timestamp: new Date(Date.now() - 86400000 * 14).toISOString(), note: "Initial field log created with photos of ponding water." },
+            { timestamp: new Date(Date.now() - 86400000 * 11).toISOString(), note: "Status changed to Under Review. Queued for community sweep." }
+          ]
+        },
+        {
+          id: "RPT-1004",
+          isDemo: true,
+          title: "Overflowing Municipal Dual-Stream Trash Bin",
+          category: "waste",
+          location: "Market Square Transit Stop",
+          locationNormalized: "market square transit stop",
+          severity: "Medium",
+          status: "resolved",
+          description: "Public dual-stream trash bin overflowing onto the brick walkway during weekend farmers market.",
+          alsoAffectedCount: 4,
+          createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+          lastUpdatedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+          photoData: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><rect width='200' height='150' fill='%2364748b'/><rect x='60' y='50' width='80' height='85' rx='6' fill='%2315803d'/><circle cx='100' cy='85' r='18' fill='%23bbf7d0'/><text x='100' y='30' fill='%23ffffff' font-family='sans-serif' font-size='12' text-anchor='middle'>EMPTY BIN</text></svg>",
+          history: [
+            { timestamp: new Date(Date.now() - 86400000 * 10).toISOString(), note: "Report logged." },
+            { timestamp: new Date(Date.now() - 86400000 * 8).toISOString(), note: "Status changed to Under Review." },
+            { timestamp: new Date(Date.now() - 86400000 * 4).toISOString(), note: "Status changed to Resolved. Sanitation crew emptied bin and installed heavy-duty liner." }
+          ]
+        },
+        {
+          id: "RPT-1005",
+          isDemo: true,
+          title: "Heaved Concrete Slab Trip Hazard",
+          category: "sidewalks",
+          location: "Elm Street & 4th Avenue",
+          locationNormalized: "elm street 4th avenue",
+          severity: "High",
+          status: "reported",
+          description: "Tree root heave has lifted sidewalk concrete panel over 2.5 inches, directly outside the senior health center walkway.",
+          alsoAffectedCount: 2,
+          createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+          lastUpdatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+          photoData: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><rect width='200' height='150' fill='%2394a3b8'/><polygon points='30,90 100,50 170,90 100,130' fill='%23cbd5e1'/><line x1='100' y1='50' x2='100' y2='130' stroke='%23ea580c' stroke-width='5'/><text x='100' y='30' fill='%231e293b' font-family='sans-serif' font-size='12' text-anchor='middle'>SIDEWALK HEAVE</text></svg>",
+          history: [
+            { timestamp: new Date(Date.now() - 86400000 * 5).toISOString(), note: "Initial field log created. Temporary warning marker placed." }
+          ]
+        }
+      ]
+    };
+
+    /**
+     * APPLICATION STATE
+     */
+    let reports = [];
+    let selectedReportId = null;
+    let detectedDuplicateId = null;
+    let pendingUploadDataUrl = null;
+
+    /**
+     * NORMALIZATION & DUPLICATE DETECTION LOGIC
+     */
+    function normalizeLocation(str) {
+      if (!str) return "";
+      let s = str.toLowerCase();
+      const abbrevs = [
+        [/\bst\b/g, "street"],
+        [/\bave\b/g, "avenue"],
+        [/\brd\b/g, "road"],
+        [/\bblvd\b/g, "boulevard"],
+        [/\bln\b/g, "lane"],
+        [/\bdr\b/g, "drive"],
+        [/\bct\b/g, "court"],
+        [/\bpkwy\b/g, "parkway"],
+        [/\bhwy\b/g, "highway"]
+      ];
+      abbrevs.forEach(([regex, repl]) => {
+        s = s.replace(regex, repl);
+      });
+      // Strip punctuation
+      s = s.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ");
+      return s.replace(/\s+/g, " ").trim();
+    }
+
+    function computeTitleSimilarity(t1, t2) {
+      if (!t1 || !t2) return 0;
+      const getTokens = s => new Set(s.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(w => w.length > 2));
+      const s1 = getTokens(t1);
+      const s2 = getTokens(t2);
+      if (s1.size === 0 || s2.size === 0) return 0;
+
+      let intersection = 0;
+      s1.forEach(t => { if (s2.has(t)) intersection++; });
+      return intersection / Math.min(s1.size, s2.size);
+    }
+
+    function findDuplicateCandidate(category, locationInput, titleInput) {
+      const normLoc = normalizeLocation(locationInput);
+      if (!normLoc || normLoc.length < 3) return null;
+
+      return reports.find(r => {
+        if (r.status === "resolved") return false;
+        if (r.category !== category) return false;
+
+        const rNormLoc = r.locationNormalized || normalizeLocation(r.location);
+        const locMatch = rNormLoc === normLoc || rNormLoc.includes(normLoc) || normLoc.includes(rNormLoc);
+
+        if (locMatch) return true;
+
+        // If location is close and title has notable word overlap
+        const titleSim = computeTitleSimilarity(r.title, titleInput);
+        if (titleSim >= 0.5 && (rNormLoc.slice(0, 5) === normLoc.slice(0, 5))) {
+          return true;
+        }
+
+        return false;
+      }) || null;
+    }
+
+    /**
+     * PRIORITY SCORING ENGINE
+     * Transparent, deterministic calculation based on:
+     * 1. Severity weight (Urgent: 40, High: 30, Med: 20, Low: 10)
+     * 2. Elapsed Age / Inactivity factor (+2.5 pts per day unresolved, max 30)
+     * 3. Community corroboration count (+6 pts per affected neighbor beyond reporter, max 30)
+     */
+    function calculatePriorityScore(report) {
+      if (report.status === "resolved") {
+        return {
+          total: 0,
+          severityPts: 0,
+          agePts: 0,
+          affectedPts: 0,
+          level: "resolved",
+          levelLabel: "Resolved",
+          explanation: "Resolved issues carry a priority score of 0."
+        };
+      }
+
+      // Severity points
+      let severityPts = 10;
+      if (report.severity === "Urgent") severityPts = 40;
+      else if (report.severity === "High") severityPts = 30;
+      else if (report.severity === "Medium") severityPts = 20;
+
+      // Age points (days unresolved)
+      const createdDate = new Date(report.createdAt || Date.now()).getTime();
+      const ageDays = Math.max(0, (Date.now() - createdDate) / (1000 * 60 * 60 * 24));
+      const agePts = Math.min(30, Math.floor(ageDays * 2.5));
+
+      // Corroboration points
+      const extras = Math.max(0, (report.alsoAffectedCount || 1) - 1);
+      const affectedPts = Math.min(30, extras * 6);
+
+      const total = severityPts + agePts + affectedPts;
+
+      let level = "standard";
+      let levelLabel = "Standard";
+      if (total >= 75) {
+        level = "critical";
+        levelLabel = "Critical Priority";
+      } else if (total >= 50) {
+        level = "high";
+        levelLabel = "High Priority";
+      } else if (total >= 25) {
+        level = "medium";
+        levelLabel = "Medium Priority";
+      }
+
+      return {
+        total,
+        severityPts,
+        ageDays: Math.floor(ageDays),
+        agePts,
+        affectedExtras: extras,
+        affectedPts,
+        level,
+        levelLabel,
+        explanation: `Severity (${severityPts} pts) + Age (${agePts} pts, ${Math.floor(ageDays)}d) + Corroboration (${affectedPts} pts, +${extras})`
+      };
+    }
+
+    /**
+     * STALE CHECK HELPER
+     * Stale = Unresolved AND no updates for 7+ days
+     */
+    function isStale(report) {
+      if (report.status === "resolved") return false;
+      const lastUpdate = new Date(report.lastUpdatedAt || report.createdAt).getTime();
+      const diffDays = (Date.now() - lastUpdate) / (1000 * 60 * 60 * 24);
+      return diffDays >= CONFIG.staleThresholdDays;
+    }
+
+    /**
+     * LOCALSTORAGE DATA LAYER
+     */
+    function loadReports() {
+      try {
+        const raw = localStorage.getItem(CONFIG.storageKey);
+        if (!raw) {
+          saveReports(CONFIG.defaultDemoReports);
+          return JSON.parse(JSON.stringify(CONFIG.defaultDemoReports));
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+        return JSON.parse(JSON.stringify(CONFIG.defaultDemoReports));
+      } catch (e) {
+        console.warn("Storage parsing error. Falling back to default demo records.", e);
+        return JSON.parse(JSON.stringify(CONFIG.defaultDemoReports));
+      }
+    }
+
+    function saveReports(data) {
+      try {
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+      } catch (e) {
+        console.error("Local storage write failure:", e);
+        alert("Warning: Browser storage quota exceeded or disabled. Changes may not persist.");
+      }
+    }
+
+    /**
+     * RENDERING: OVERVIEW STATS & DYNAMIC CATEGORY BARS
+     */
+    function renderOverviewStats() {
+      let total = reports.length;
+      let unresolved = 0;
+      let highPriority = 0;
+      let resolved = 0;
+
+      const catCounts = { roads: 0, lighting: 0, waste: 0, sidewalks: 0, other: 0 };
+      const statusCounts = { reported: 0, "under-review": 0, "in-progress": 0, resolved: 0 };
+
+      reports.forEach(r => {
+        if (r.status === "resolved") {
+          resolved++;
+        } else {
+          unresolved++;
+        }
+
+        const prio = calculatePriorityScore(r);
+        if (r.status !== "resolved" && (prio.total >= 50 || r.severity === "Urgent" || r.severity === "High")) {
+          highPriority++;
+        }
+
+        if (catCounts[r.category] !== undefined) {
+          catCounts[r.category]++;
+        } else {
+          catCounts.other++;
+        }
+
+        if (statusCounts[r.status] !== undefined) {
+          statusCounts[r.status]++;
+        }
+      });
+
+      document.getElementById("metricTotal").textContent = total;
+      document.getElementById("metricUnresolved").textContent = unresolved;
+      document.getElementById("metricHighPriority").textContent = highPriority;
+      document.getElementById("metricResolved").textContent = resolved;
+
+      // Pipeline bar calculation
+      const repPct = total > 0 ? (statusCounts.reported / total) * 100 : 0;
+      const revPct = total > 0 ? (statusCounts["under-review"] / total) * 100 : 0;
+      const progPct = total > 0 ? (statusCounts["in-progress"] / total) * 100 : 0;
+      const resPct = total > 0 ? (statusCounts.resolved / total) * 100 : 0;
+
+      const strip = document.getElementById("statusPipelineStrip");
+      strip.children[0].style.width = `${repPct}%`;
+      strip.children[1].style.width = `${revPct}%`;
+      strip.children[2].style.width = `${progPct}%`;
+      strip.children[3].style.width = `${resPct}%`;
+      document.getElementById("pipelineRatio").textContent = `${Math.round(resPct)}% Resolved`;
+
+      // Category breakdown bars
+      const maxCatCount = Math.max(1, ...Object.values(catCounts));
+      const barsContainer = document.getElementById("categoryBarsContainer");
+      let barsHtml = "";
+
+      const activeCategoryFilter = document.getElementById("filterCategory").value;
+
+      Object.entries(CONFIG.categories).forEach(([key, label]) => {
+        const count = catCounts[key] || 0;
+        const widthPct = Math.round((count / maxCatCount) * 100);
+        const isFilterActive = activeCategoryFilter === key;
+
+        barsHtml += `
+          <div class="cat-bar-row ${isFilterActive ? 'is-active-filter' : ''}" data-cat="${key}" title="Click to filter by ${label}">
+            <span class="cat-bar-label">${label}</span>
+            <div class="cat-bar-track">
+              <div class="cat-bar-fill ${isFilterActive ? 'accent' : ''}" style="width: ${widthPct}%;"></div>
+            </div>
+            <span class="cat-bar-count">${count}</span>
+          </div>
+        `;
+      });
+
+      barsContainer.innerHTML = barsHtml;
+    }
+
+    /**
+     * RENDERING: QUEUE TABLE
+     */
+    function getFilteredAndSortedReports() {
+      const q = document.getElementById("filterSearch").value.trim().toLowerCase();
+      const filterCat = document.getElementById("filterCategory").value;
+      const filterStat = document.getElementById("filterStatus").value;
+      const filterSev = document.getElementById("filterSeverity").value;
+      const sortBy = document.getElementById("sortBy").value;
+
+      let list = reports.filter(r => {
+        // Category
+        if (filterCat !== "ALL" && r.category !== filterCat) return false;
+
+        // Status (including stale special filter)
+        if (filterStat === "stale") {
+          if (!isStale(r)) return false;
+        } else if (filterStat !== "ALL" && r.status !== filterStat) {
+          return false;
+        }
+
+        // Severity
+        if (filterSev !== "ALL" && r.severity !== filterSev) return false;
+
+        // Search Query
+        if (q) {
+          const mId = (r.id || "").toLowerCase().includes(q);
+          const mTitle = (r.title || "").toLowerCase().includes(q);
+          const mLoc = (r.location || "").toLowerCase().includes(q);
+          const mDesc = (r.description || "").toLowerCase().includes(q);
+          const mCat = (CONFIG.categories[r.category] || "").toLowerCase().includes(q);
+          if (!mId && !mTitle && !mLoc && !mDesc && !mCat) return false;
+        }
+
+        return true;
+      });
+
+      // Sorting
+      list.sort((a, b) => {
+        if (sortBy === "priority") {
+          return calculatePriorityScore(b).total - calculatePriorityScore(a).total;
+        } else if (sortBy === "newest") {
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        } else if (sortBy === "oldest") {
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        } else if (sortBy === "affected") {
+          return (b.alsoAffectedCount || 1) - (a.alsoAffectedCount || 1);
+        } else if (sortBy === "severity") {
+          const weights = { Urgent: 4, High: 3, Medium: 2, Low: 1 };
+          return (weights[b.severity] || 0) - (weights[a.severity] || 0);
+        }
+        return 0;
+      });
+
+      return list;
+    }
+
+    function renderQueue() {
+      const tbody = document.getElementById("queueTableBody");
+      const emptyState = document.getElementById("tableEmptyState");
+      const filtered = getFilteredAndSortedReports();
+
+      // Update counters in status summary
+      let countRep = 0, countRev = 0, countProg = 0, countRes = 0, countStale = 0;
+      reports.forEach(r => {
+        if (r.status === "reported") countRep++;
+        else if (r.status === "under-review") countRev++;
+        else if (r.status === "in-progress") countProg++;
+        else if (r.status === "resolved") countRes++;
+
+        if (isStale(r)) countStale++;
+      });
+
+      document.getElementById("statReported").textContent = `Reported: ${countRep}`;
+      document.getElementById("statReview").textContent = `Under Review: ${countRev}`;
+      document.getElementById("statProgress").textContent = `In-Progress: ${countProg}`;
+      document.getElementById("statStale").textContent = `Stale (7+d): ${countStale}`;
+      document.getElementById("statResolved").textContent = `Resolved: ${countRes}`;
+
+      document.getElementById("queueCountIndicator").textContent = 
+        `Showing ${filtered.length} of ${reports.length} report${reports.length === 1 ? '' : 's'}`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = "";
+        emptyState.style.display = "flex";
+        if (reports.length === 0) {
+          document.getElementById("emptyTitle").textContent = "Maintenance queue is completely empty";
+          document.getElementById("emptyDesc").textContent = "No records found in local storage. Click 'Report Maintenance Issue' to create one, or reload demo records.";
+        } else {
+          document.getElementById("emptyTitle").textContent = "No reports match active filters";
+          document.getElementById("emptyDesc").textContent = "Try broadening your search query or reset filter selectors.";
+        }
+        renderInspector();
+        return;
+      }
+
+      emptyState.style.display = "none";
+
+      // Keep selection or choose first available
+      if (!reports.some(r => r.id === selectedReportId)) {
+        selectedReportId = filtered[0].id;
+      }
+
+      let html = "";
+      filtered.forEach(r => {
+        const isSelected = r.id === selectedReportId;
+        const prio = calculatePriorityScore(r);
+        const staleFlag = isStale(r);
+        const dateCreated = new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const dateUpdated = new Date(r.lastUpdatedAt || r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+        // Status badge
+        let statusClass = "badge-reported";
+        let statusLabel = "REPORTED";
+        if (r.status === "under-review") {
+          statusClass = "badge-review";
+          statusLabel = "UNDER REVIEW";
+        } else if (r.status === "in-progress") {
+          statusClass = "badge-progress";
+          statusLabel = "IN PROGRESS";
+        } else if (r.status === "resolved") {
+          statusClass = "badge-resolved";
+          statusLabel = "RESOLVED";
+        }
+
+        // Severity badge
+        const sevClass = `badge-${r.severity.toLowerCase().slice(0, 3)}`;
+
+        // Thumbnail / icon fallback
+        let thumbHtml = "";
+        if (r.photoData) {
+          thumbHtml = `<img src="${r.photoData}" alt="Thumbnail" loading="lazy">`;
+        } else {
+          thumbHtml = `<span style="font-size: 1.15rem;" aria-hidden="true">📍</span>`;
+        }
+
+        html += `
+          <tr data-id="${r.id}" class="${isSelected ? 'is-selected' : ''}" tabindex="0" role="button" aria-label="Select report ${r.id}: ${escapeHtml(r.title)}">
+            <td>
+              <div class="priority-badge-box ${prio.level}" title="${prio.explanation}">
+                <span class="priority-score-num">${prio.total}</span>
+                <span class="priority-score-label">pts</span>
+              </div>
+            </td>
+            <td>
+              <div style="font-family: var(--font-mono); font-weight: 800; font-size: 0.775rem;">${escapeHtml(r.id)}</div>
+              <div class="table-timestamp">${dateCreated}</div>
+              ${r.isDemo ? '<span class="badge badge-demo" title="Sample demo record">DEMO</span>' : ''}
+            </td>
+            <td>
+              <div class="report-main-meta">
+                <div class="thumb-cell">${thumbHtml}</div>
+                <div class="report-text-block">
+                  <div class="report-title">${escapeHtml(r.title)}</div>
+                  <div class="report-location">📍 ${escapeHtml(r.location)}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span style="font-size: 0.775rem; font-weight: 600; color: var(--charcoal-700);">
+                ${CONFIG.categories[r.category] || r.category}
+              </span>
+            </td>
+            <td>
+              <span class="affected-pill ${(r.alsoAffectedCount || 1) > 1 ? 'boosted' : ''}">
+                ${r.alsoAffectedCount || 1} &times;
+              </span>
+            </td>
+            <td>
+              <div style="display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;">
+                <span class="badge ${statusClass}">${statusLabel}</span>
+                ${staleFlag ? '<span class="badge badge-stale" title="No update for 7+ days">STALE</span>' : ''}
+              </div>
+            </td>
+            <td>
+              <span class="table-timestamp">${dateUpdated}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      renderInspector();
+    }
+
+    /**
+     * RENDERING: DETAIL INSPECTOR PANEL
+     */
+    function renderInspector() {
+      const content = document.getElementById("inspContent");
+      const emptyNotice = document.getElementById("inspEmptyNotice");
+      const target = reports.find(r => r.id === selectedReportId);
+
+      if (!target) {
+        content.style.display = "none";
+        emptyNotice.style.display = "flex";
+        document.getElementById("inspId").textContent = "Select an issue";
+        document.getElementById("inspBadges").innerHTML = "";
+        return;
+      }
+
+      content.style.display = "flex";
+      emptyNotice.style.display = "none";
+
+      document.getElementById("inspId").textContent = target.id;
+
+      // Badges
+      let badgesHtml = "";
+      if (target.isDemo) {
+        badgesHtml += `<span class="badge badge-demo">Sample Demo Data</span>`;
+      }
+      badgesHtml += `<span class="badge badge-${target.severity.toLowerCase().slice(0,3)}">${escapeHtml(target.severity)}</span>`;
+      
+      let stClass = "badge-reported";
+      let stText = "REPORTED";
+      if (target.status === "under-review") { stClass = "badge-review"; stText = "UNDER REVIEW"; }
+      if (target.status === "in-progress") { stClass = "badge-progress"; stText = "IN PROGRESS"; }
+      if (target.status === "resolved") { stClass = "badge-resolved"; stText = "RESOLVED"; }
+      badgesHtml += `<span class="badge ${stClass}">${stText}</span>`;
+
+      const stale = isStale(target);
+      if (stale) {
+        badgesHtml += `<span class="badge badge-stale">STALE (7+d)</span>`;
+      }
+      document.getElementById("inspBadges").innerHTML = badgesHtml;
+
+      // Title & Location
+      document.getElementById("inspTitle").textContent = target.title;
+      document.getElementById("inspLocation").textContent = `📍 ${target.location} • Category: ${CONFIG.categories[target.category] || target.category}`;
+
+      // Photo
+      const photoWrapper = document.getElementById("inspPhotoWrapper");
+      const photoImg = document.getElementById("inspPhotoImg");
+      if (target.photoData) {
+        photoImg.src = target.photoData;
+        photoWrapper.style.display = "flex";
+      } else {
+        photoWrapper.style.display = "none";
+      }
+
+      // Priority Breakdown
+      const prio = calculatePriorityScore(target);
+      document.getElementById("inspPriorityTotal").textContent = `Score: ${prio.total} / 100 (${prio.levelLabel})`;
+      document.getElementById("inspPriorityBreakdown").innerHTML = `
+        <div>&bull; <strong>Severity Factor:</strong> +${prio.severityPts} pts (${target.severity})</div>
+        <div>&bull; <strong>Inactivity / Age:</strong> +${prio.agePts} pts (${prio.ageDays} days active)</div>
+        <div>&bull; <strong>Corroboration:</strong> +${prio.affectedPts} pts (+${prio.affectedExtras} corroborating neighbors)</div>
+      `;
+
+      // Stale warning banner
+      document.getElementById("inspStaleWarning").style.display = stale ? "block" : "none";
+
+      // Description
+      document.getElementById("inspDescription").textContent = target.description;
+
+      // Community Affected Count
+      document.getElementById("inspAffectedCount").textContent = target.alsoAffectedCount || 1;
+
+      // Status selector sync
+      document.getElementById("inspStatusSelect").value = target.status;
+      document.getElementById("inspStatusReason").value = "";
+      document.getElementById("inspStatusReasonError").style.display = "none";
+
+      // Timeline / activity log
+      const timelineBox = document.getElementById("inspTimeline");
+      if (target.history && target.history.length > 0) {
+        let historyHtml = "";
+        const sorted = [...target.history].reverse();
+        sorted.forEach(h => {
+          const timeStr = new Date(h.timestamp).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+          historyHtml += `
+            <div class="timeline-entry">
+              <div class="timeline-time">${timeStr}</div>
+              <div class="timeline-action">${escapeHtml(h.note)}</div>
+            </div>
+          `;
+        });
+        timelineBox.innerHTML = historyHtml;
+      } else {
+        timelineBox.innerHTML = `<div style="font-size: 0.75rem; color: var(--charcoal-500);">No update history logged.</div>`;
+      }
+    }
+
+    /**
+     * ACTIONS: CORROBORATE & STATUS TRANSITIONS
+     */
+    function handleAddAlsoAffected(reportId) {
+      const r = reports.find(item => item.id === reportId);
+      if (!r) return;
+
+      r.alsoAffectedCount = (r.alsoAffectedCount || 1) + 1;
+      r.lastUpdatedAt = new Date().toISOString();
+      if (!r.history) r.history = [];
+      r.history.push({
+        timestamp: new Date().toISOString(),
+        note: `+1 Neighbor corroboration recorded (Total affected: ${r.alsoAffectedCount})`
+      });
+
+      saveReports(reports);
+      renderOverviewStats();
+      renderQueue();
+    }
+
+    function handleApplyStatusChange() {
+      const r = reports.find(item => item.id === selectedReportId);
+      if (!r) return;
+
+      const newStatus = document.getElementById("inspStatusSelect").value;
+      const reason = document.getElementById("inspStatusReason").value.trim();
+      const errBox = document.getElementById("inspStatusReasonError");
+
+      if (!reason) {
+        errBox.style.display = "block";
+        document.getElementById("inspStatusReason").focus();
+        return;
+      }
+      errBox.style.display = "none";
+
+      const oldStatus = r.status;
+      r.status = newStatus;
+      r.lastUpdatedAt = new Date().toISOString();
+      if (!r.history) r.history = [];
+      r.history.push({
+        timestamp: new Date().toISOString(),
+        note: `Status changed from [${oldStatus.toUpperCase()}] to [${newStatus.toUpperCase()}]: ${reason}`
+      });
+
+      saveReports(reports);
+      renderOverviewStats();
+      renderQueue();
+    }
+
+    /**
+     * ACTIONS: NEW REPORT CREATION & DUPLICATE CHECK
+     */
+    function openNewReportModal() {
+      const form = document.getElementById("newReportForm");
+      form.reset();
+      clearFormErrors();
+      pendingUploadDataUrl = null;
+      document.getElementById("repPhotoPreviewContainer").style.display = "none";
+      document.getElementById("duplicateAlertBox").style.display = "none";
+      detectedDuplicateId = null;
+      document.getElementById("newReportModal").classList.add("is-active");
+      document.getElementById("repTitle").focus();
+    }
+
+    function closeNewReportModal() {
+      document.getElementById("newReportModal").classList.remove("is-active");
+    }
+
+    function clearFormErrors() {
+      document.querySelectorAll(".form-group.has-error").forEach(el => el.classList.remove("has-error"));
+    }
+
+    function checkLiveDuplicate() {
+      const cat = document.getElementById("repCategory").value;
+      const loc = document.getElementById("repLocation").value;
+      const title = document.getElementById("repTitle").value;
+      const alertBox = document.getElementById("duplicateAlertBox");
+
+      const dup = findDuplicateCandidate(cat, loc, title);
+      if (dup) {
+        detectedDuplicateId = dup.id;
+        document.getElementById("duplicateAlertMsg").innerHTML = `
+          A matching <strong>${CONFIG.categories[dup.category] || dup.category}</strong> report exists at this location:<br>
+          <strong>[${escapeHtml(dup.id)}] "${escapeHtml(dup.title)}"</strong> at <em>${escapeHtml(dup.location)}</em><br>
+          Status: <strong>${dup.status.toUpperCase()}</strong> &bull; Corroborations: <strong>${dup.alsoAffectedCount || 1}</strong>
+        `;
+        alertBox.style.display = "flex";
+      } else {
+        detectedDuplicateId = null;
+        alertBox.style.display = "none";
+      }
+    }
+
+    function handlePhotoUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+          // Scale down to max 480px to protect localStorage quota
+          const maxDim = 480;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          pendingUploadDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+          document.getElementById("repPhotoPreview").src = pendingUploadDataUrl;
+          document.getElementById("repPhotoPreviewContainer").style.display = "flex";
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleCreateReportSubmit(e) {
+      e.preventDefault();
+      clearFormErrors();
+
+      const title = document.getElementById("repTitle").value.trim();
+      const category = document.getElementById("repCategory").value;
+      const severity = document.getElementById("repSeverity").value;
+      const location = document.getElementById("repLocation").value.trim();
+      const description = document.getElementById("repDescription").value.trim();
+
+      let hasError = false;
+      if (!title) {
+        document.getElementById("groupTitle").classList.add("has-error");
+        hasError = true;
+      }
+      if (!location) {
+        document.getElementById("groupLocation").classList.add("has-error");
+        hasError = true;
+      }
+      if (!description) {
+        document.getElementById("groupDescription").classList.add("has-error");
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      // Duplicate safeguard check if alert was visible and not dismissed
+      const dup = findDuplicateCandidate(category, location, title);
+      if (dup && detectedDuplicateId === dup.id) {
+        const confirmCorroborate = confirm(
+          `Notice: An active report #${dup.id} ("${dup.title}") is already logged for this location.\n\n` +
+          `Would you like to corroborate the existing report (+1 Also Affected) instead of creating a duplicate ticket?`
+        );
+        if (confirmCorroborate) {
+          handleAddAlsoAffected(dup.id);
+          selectedReportId = dup.id;
+          closeNewReportModal();
+          return;
+        }
+      }
+
+      // Generate clean ticket ID
+      const nextNum = 1000 + reports.length + 1;
+      const newId = `RPT-${nextNum}`;
+
+      const newReport = {
+        id: newId,
+        isDemo: false, // User-created!
+        title,
+        category,
+        location,
+        locationNormalized: normalizeLocation(location),
+        severity,
+        status: "reported",
+        description,
+        alsoAffectedCount: 1,
+        createdAt: new Date().toISOString(),
+        lastUpdatedAt: new Date().toISOString(),
+        photoData: pendingUploadDataUrl || null,
+        history: [
+          {
+            timestamp: new Date().toISOString(),
+            note: `Initial maintenance report logged with ${severity} severity.`
+          }
+        ]
+      };
+
+      reports.unshift(newReport);
+      selectedReportId = newId;
+      saveReports(reports);
+      closeNewReportModal();
+      renderOverviewStats();
+      renderQueue();
+    }
+
+    /**
+     * BACKUP & RESTORE UTILITIES
+     */
+    function exportBackupJson() {
+      const payload = {
+        app: "FixSpot",
+        version: "2.0.0",
+        exportedAt: new Date().toISOString(),
+        reportCount: reports.length,
+        records: reports
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+      const a = document.createElement("a");
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `fixspot-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function handleImportFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          const importedRecords = Array.isArray(parsed) ? parsed : parsed.records;
+          if (!Array.isArray(importedRecords)) {
+            alert("Error: File does not contain a valid array of FixSpot records.");
+            return;
+          }
+
+          if (confirm(`Valid backup found with ${importedRecords.length} reports. Replace current queue in localStorage?`)) {
+            reports = importedRecords;
+            saveReports(reports);
+            if (reports.length > 0) selectedReportId = reports[0].id;
+            document.getElementById("storageModal").classList.remove("is-active");
+            renderOverviewStats();
+            renderQueue();
+            alert("Backup imported successfully!");
+          }
+        } catch (err) {
+          alert("Error parsing JSON file. Please ensure it is a valid FixSpot backup.");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    }
+
+    /**
+     * INITIALIZATION & EVENT LISTENERS
+     */
+    function init() {
+      reports = loadReports();
+      if (reports.length > 0) {
+        selectedReportId = reports[0].id;
+      }
+
+      // Initial stats & queue render
+      renderOverviewStats();
+      renderQueue();
+
+      // Row Selection
+      document.getElementById("queueTableBody").addEventListener("click", (e) => {
+        const tr = e.target.closest("tr");
+        if (tr && tr.dataset.id) {
+          selectedReportId = tr.dataset.id;
+          renderQueue();
+        }
+      });
+
+      // Filter Inputs
+      document.getElementById("filterSearch").addEventListener("input", renderQueue);
+      document.getElementById("filterCategory").addEventListener("change", () => {
+        renderOverviewStats();
+        renderQueue();
+      });
+      document.getElementById("filterStatus").addEventListener("change", renderQueue);
+      document.getElementById("filterSeverity").addEventListener("change", renderQueue);
+      document.getElementById("sortBy").addEventListener("change", renderQueue);
+
+      // Reset filters
+      const resetFilters = () => {
+        document.getElementById("filterSearch").value = "";
+        document.getElementById("filterCategory").value = "ALL";
+        document.getElementById("filterStatus").value = "ALL";
+        document.getElementById("filterSeverity").value = "ALL";
+        document.getElementById("sortBy").value = "priority";
+        renderOverviewStats();
+        renderQueue();
+      };
+      document.getElementById("resetFiltersBtn").addEventListener("click", resetFilters);
+      document.getElementById("clearFiltersBtnEmpty").addEventListener("click", resetFilters);
+
+      // Category Bar Click -> Filter Trigger
+      document.getElementById("categoryBarsContainer").addEventListener("click", (e) => {
+        const row = e.target.closest(".cat-bar-row");
+        if (row && row.dataset.cat) {
+          const cat = row.dataset.cat;
+          const current = document.getElementById("filterCategory").value;
+          document.getElementById("filterCategory").value = current === cat ? "ALL" : cat;
+          renderOverviewStats();
+          renderQueue();
+        }
+      });
+
+      // Inspector panel buttons
+      document.getElementById("inspBoostBtn").addEventListener("click", () => {
+        if (selectedReportId) handleAddAlsoAffected(selectedReportId);
+      });
+      document.getElementById("inspUpdateStatusBtn").addEventListener("click", handleApplyStatusChange);
+
+      // Report modal triggers
+      document.getElementById("openNewReportModalBtn").addEventListener("click", openNewReportModal);
+      document.getElementById("closeReportModalBtn").addEventListener("click", closeNewReportModal);
+      document.getElementById("cancelReportBtn").addEventListener("click", closeNewReportModal);
+      document.getElementById("newReportForm").addEventListener("submit", handleCreateReportSubmit);
+
+      // Live duplicate checking
+      document.getElementById("repLocation").addEventListener("input", checkLiveDuplicate);
+      document.getElementById("repTitle").addEventListener("input", checkLiveDuplicate);
+      document.getElementById("repCategory").addEventListener("change", checkLiveDuplicate);
+
+      // Duplicate alert actions
+      document.getElementById("dupAddAffectedBtn").addEventListener("click", () => {
+        if (detectedDuplicateId) {
+          handleAddAlsoAffected(detectedDuplicateId);
+          selectedReportId = detectedDuplicateId;
+          closeNewReportModal();
+        }
+      });
+      document.getElementById("dupIgnoreBtn").addEventListener("click", () => {
+        document.getElementById("duplicateAlertBox").style.display = "none";
+        detectedDuplicateId = null;
+      });
+
+      // Photo upload
+      document.getElementById("repPhotoFile").addEventListener("change", handlePhotoUpload);
+      document.getElementById("repPhotoRemoveBtn").addEventListener("click", () => {
+        pendingUploadDataUrl = null;
+        document.getElementById("repPhotoFile").value = "";
+        document.getElementById("repPhotoPreviewContainer").style.display = "none";
+      });
+
+      // Storage modal
+      const storageModal = document.getElementById("storageModal");
+      document.getElementById("openStorageModalBtn").addEventListener("click", () => storageModal.classList.add("is-active"));
+      document.getElementById("closeStorageModalBtn").addEventListener("click", () => storageModal.classList.remove("is-active"));
+      document.getElementById("storageDoneBtn").addEventListener("click", () => storageModal.classList.remove("is-active"));
+
+      document.getElementById("exportJsonBtn").addEventListener("click", exportBackupJson);
+      document.getElementById("triggerImportBtn").addEventListener("click", () => document.getElementById("importFileInput").click());
+      document.getElementById("importFileInput").addEventListener("change", handleImportFile);
+
+      document.getElementById("loadDefaultDemoBtn").addEventListener("click", () => {
+        if (confirm("Reset current queue and reload standard demo dataset?")) {
+          reports = JSON.parse(JSON.stringify(CONFIG.defaultDemoReports));
+          saveReports(reports);
+          selectedReportId = reports[0].id;
+          storageModal.classList.remove("is-active");
+          renderOverviewStats();
+          renderQueue();
+        }
+      });
+
+      document.getElementById("resetDemoBtn").addEventListener("click", () => {
+        if (confirm("Reset current queue and reload standard demo dataset?")) {
+          reports = JSON.parse(JSON.stringify(CONFIG.defaultDemoReports));
+          saveReports(reports);
+          selectedReportId = reports[0].id;
+          renderOverviewStats();
+          renderQueue();
+        }
+      });
+
+      document.getElementById("clearAllBtn").addEventListener("click", () => {
+        if (confirm("Permanently clear ALL records from browser localStorage?")) {
+          reports = [];
+          selectedReportId = null;
+          saveReports(reports);
+          storageModal.classList.remove("is-active");
+          renderOverviewStats();
+          renderQueue();
+        }
+      });
+
+      // Global keyboard accessibility
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeNewReportModal();
+          storageModal.classList.remove("is-active");
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
